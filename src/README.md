@@ -1,1 +1,1 @@
- * Version 1.0 - initial releaes
+ * Version 1.0 - initial release
