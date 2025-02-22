@@ -21,7 +21,8 @@
  * 
  * https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
  *
- * Version 1.0
+ * Version 1.0 SSB filter and VFA
+ * Version 1.1 added CW filter
  *
  */
 
@@ -50,6 +51,8 @@
 #define DEFAULT_FREQUENCY 7100000ul
 #define DEFAULT_STEP      1000ul
 #define DEFAULT_BAND      BAND_40M
+#define DEFAULT_MODE      MODE_SSB
+#define DEFAULT_AUTO_MODE true
 #define VOLUME_STEP       10u
 #define LONG_PRESS_TIME   1000u
 #define MIN_FREQUENCY     3500000ul
@@ -70,11 +73,19 @@ enum band_t
   NUM_BANDS
 };
 
+enum radio_mode_t
+{
+  MODE_SSB,
+  MODE_CW
+};
+
 volatile static struct
 {
   uint32_t frequency;
   uint32_t tuning_step;
   uint32_t volume;
+  mode_t mode;
+  bool auto_mode;
   band_t band;
   uint32_t band_frequency[NUM_BANDS];
 }
@@ -83,6 +94,8 @@ radio =
   DEFAULT_FREQUENCY,
   DEFAULT_STEP,
   DEFAULT_VOLUME,
+  DEFAULT_MODE,
+  DEFAULT_AUTO_MODE,
   DEFAULT_BAND,
   {
     3600000ul,
@@ -160,6 +173,12 @@ void setup()
   }
 #endif
 
+  // if button pressed at startup
+  // then turn off auto mode
+  if (digitalRead(PIN_ENCBUT)==LOW)
+  {
+    radio.auto_mode = false;
+  }
   r.begin();
   init_adc();
   analogWrite(PIN_VOL,radio.volume);
@@ -230,7 +249,12 @@ void __not_in_flash_func(loop)(void)
   if (adc_value_ready)
   {
     adc_value_ready = false;
-    int32_t rx_value = (int32_t)DSP::process_ssb(adc_value);
+    int32_t rx_value = 0;
+    switch (radio.mode)
+    {
+      case MODE_SSB: rx_value = (int32_t)DSP::process_ssb(adc_value); break;
+      case MODE_CW:  rx_value = (int32_t)DSP::process_cw(adc_value);  break;
+    }
     if (VFA::active)
     {
       rx_value = (rx_value>>4) + VFA::announce();
@@ -349,9 +373,28 @@ void loop1()
   radio.frequency = constrain(radio.frequency,MIN_FREQUENCY,MAX_FREQUENCY);
   if (radio.frequency!=current_frequency)
   {
+    // update the frequency
     current_frequency = radio.frequency;
     new_vfa_frequency = radio.frequency / 1000ul;
     SI5351.setFreq(SI5351_CLK0,radio.frequency);
+
+    // update the mode
+    if (radio.auto_mode)
+    {
+      volatile radio_mode_t new_mode = MODE_SSB;
+      if ((radio.frequency >= 3500000ul && radio.frequency <= 3560000) ||
+        (radio.frequency >= 7000000ul && radio.frequency <= 7060000) ||
+        (radio.frequency >= 14000000ul && radio.frequency <= 14060000))
+      {
+        // switch to CW
+        new_mode = MODE_CW;
+      }
+      if (radio.mode != new_mode)
+      {
+        // only update the mode if it has changed
+        radio.mode = new_mode;
+      }
+    }
   }
 
   // VFA processing

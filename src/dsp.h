@@ -104,6 +104,15 @@ namespace DSP
     const float v = FILTER::lpf_2400(dc);
     return agc(v * 8192.0f);
   }
+
+  static const int16_t __not_in_flash_func(process_cw)(const float s)
+  {
+    // 600-800 BPF
+    // AGC
+    // convert to fixed (12 bit)
+    const float v = FILTER::bpf_700f(s);
+    return agc(v * 8192.0f);
+  }
 }
 
 #endif

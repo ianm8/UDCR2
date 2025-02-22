@@ -21,8 +21,7 @@
 #define VFA_H
 
 // Voice Frequency Announce
-
-//#define VFA_TESTS
+#define VFA_TESTS 0
 
 namespace VFA
 {
@@ -115,7 +114,7 @@ namespace VFA
     return sample<<3;
   }
 
-#ifdef VFA_TESTS
+#if defined VFA_TESTS && VFA_TESTS==1
   static void __not_in_flash_func(init_test_1)(const uint32_t start = 0)
   {
     if (active)
