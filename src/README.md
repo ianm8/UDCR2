@@ -8,3 +8,4 @@ Build:
 Some history
  * Version 1.0 initial release
  * Version 1.1 added CW filter
+ * Version 1.2 fixed announce delay
