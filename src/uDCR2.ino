@@ -23,6 +23,7 @@
  *
  * Version 1.0 SSB filter and VFA
  * Version 1.1 added CW filter
+ * Version 1.2 fixed announce delay
  *
  */
 
@@ -178,6 +179,12 @@ void setup()
   if (digitalRead(PIN_ENCBUT)==LOW)
   {
     radio.auto_mode = false;
+    delay(50);
+    while (digitalRead(PIN_ENCBUT)==LOW)
+    {
+      delay(50);
+    }
+    delay(50);
   }
   r.begin();
   init_adc();
@@ -378,6 +385,9 @@ void loop1()
     new_vfa_frequency = radio.frequency / 1000ul;
     SI5351.setFreq(SI5351_CLK0,radio.frequency);
 
+    // reset announce time for any change
+    vfa_announce_time = millis() + VFA_DELAY;
+
     // update the mode
     if (radio.auto_mode)
     {
@@ -393,6 +403,16 @@ void loop1()
       {
         // only update the mode if it has changed
         radio.mode = new_mode;
+        if (new_mode==MODE_SSB)
+        {
+          // changed to SSB
+          radio.tuning_step = 1000u;
+        }
+        else if (radio.tuning_step==1000u)
+        {
+          // changed to CW
+          radio.tuning_step = 100u;
+        }
       }
     }
   }
@@ -401,7 +421,6 @@ void loop1()
   if (current_vfa_frequency != new_vfa_frequency)
   {
     current_vfa_frequency = new_vfa_frequency;
-    vfa_announce_time = millis() + VFA_DELAY; 
     vfa_announce = true;
   }
 

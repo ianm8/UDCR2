@@ -1,6 +1,10 @@
 /*
  * si5351mcu - Si5351 library for Arduino MCU tuned for size and click-less
  *
+ * modified by Ian Mitchell 2025-02-22
+ *  use Wire1 (for XIAO RP2350)
+ *  return boolean from init() if device found
+ *
  * Copyright (C) 2017 Pavel Milanes <pavelmc@gmail.com>
  *
  * Many chunk of codes are derived-from/copied from other libs
@@ -58,7 +62,7 @@
     Wire1.beginTransmission(SIADDR);
     if (Wire1.endTransmission())
     {
-      // endTransmission returns 0 on success
+      // endTransmission() returns 0 on success
       return false;
     }
 
