@@ -24,6 +24,8 @@
  * Version 1.0 SSB filter and VFA
  * Version 1.1 added CW filter
  * Version 1.2 fixed announce delay
+ * Version 1.3 increased volume resolution
+ * Version 1.4 improved tuning logic
  *
  */
 
@@ -54,7 +56,7 @@
 #define DEFAULT_BAND      BAND_40M
 #define DEFAULT_MODE      MODE_SSB
 #define DEFAULT_AUTO_MODE true
-#define VOLUME_STEP       10u
+#define VOLUME_STEP       5u
 #define LONG_PRESS_TIME   1000u
 #define MIN_FREQUENCY     3500000ul
 #define MAX_FREQUENCY     15000000ul
@@ -274,7 +276,7 @@ void __not_in_flash_func(loop)(void)
 
 void loop1()
 {
-  // for remembering the current frequency and button press
+  // remember the current frequency and button state
   static uint32_t current_frequency = 0;
   static uint32_t button_start_time = 0;
   static uint32_t vfa_announce_time = 0;
@@ -304,8 +306,19 @@ void loop1()
       // tuning
       switch (rotary)
       {
-        case DIR_CW:  radio.frequency += radio.tuning_step; break;
-        case DIR_CCW: radio.frequency -= radio.tuning_step; break;
+        case DIR_CW:
+        {
+          radio.frequency += radio.tuning_step - radio.frequency%radio.tuning_step;
+          radio.frequency = constrain(radio.frequency,MIN_FREQUENCY,MAX_FREQUENCY);
+          break;
+        }
+        case DIR_CCW:
+        {
+          const uint32_t modula = radio.frequency%radio.tuning_step;
+          radio.frequency -= (modula==0)?radio.tuning_step:modula;
+          radio.frequency = constrain(radio.frequency,MIN_FREQUENCY,MAX_FREQUENCY);
+          break;
+        }
       }
       if (digitalRead(PIN_ENCBUT)==LOW)
       {
@@ -357,6 +370,7 @@ void loop1()
         case DIR_CW:  radio.volume += VOLUME_STEP; break;
         case DIR_CCW: radio.volume -= VOLUME_STEP; break;
       }
+      radio.volume = constrain(radio.volume,MIN_VOL,MAX_VOL);
       if (digitalRead(PIN_ENCBUT)==HIGH)
       {
         state = STATE_WAIT_RELEASE;
@@ -375,9 +389,7 @@ void loop1()
     }
   }
 
-  radio.volume = constrain(radio.volume,MIN_VOL,MAX_VOL);
-  radio.frequency -= radio.frequency%radio.tuning_step;
-  radio.frequency = constrain(radio.frequency,MIN_FREQUENCY,MAX_FREQUENCY);
+  // frequency changed?
   if (radio.frequency!=current_frequency)
   {
     // update the frequency
@@ -392,9 +404,9 @@ void loop1()
     if (radio.auto_mode)
     {
       volatile radio_mode_t new_mode = MODE_SSB;
-      if ((radio.frequency >= 3500000ul && radio.frequency <= 3560000) ||
-        (radio.frequency >= 7000000ul && radio.frequency <= 7060000) ||
-        (radio.frequency >= 14000000ul && radio.frequency <= 14060000))
+      if ((radio.frequency >= 3500000ul && radio.frequency <= 3560000ul) ||
+        (radio.frequency >= 7000000ul && radio.frequency <= 7060000ul) ||
+        (radio.frequency >= 14000000ul && radio.frequency <= 14060000ul))
       {
         // switch to CW
         new_mode = MODE_CW;
